@@ -1,7 +1,6 @@
 import sys
 
 
-
 def fuse(*dicts, reduce=False):
     assert reduce in (False, True)
     valuess = dict()

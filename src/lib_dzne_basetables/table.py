@@ -1,15 +1,12 @@
 # importing
-from collections import defaultdict
-import pandas as pd
 import string
 import sys
+from collections import defaultdict
 
+import pandas as pd
 
 import lib_dzne_basetables.common as _comm
 import lib_dzne_basetables.pattern as _pat
-
-
-
 
 
 def identify_columns(table, *, patterns):

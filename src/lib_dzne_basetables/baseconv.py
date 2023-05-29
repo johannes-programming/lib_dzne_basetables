@@ -1,11 +1,10 @@
 
-from collections import defaultdict
 import sys
+from collections import defaultdict
 
 from lib_dzne_basetables import common as _comm
 from lib_dzne_basetables import pattern as _pat
 from lib_dzne_basetables import table as _tbl
-        
 
 
 def a2d(table):
