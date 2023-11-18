@@ -2,13 +2,12 @@
 requires = ["setuptools>=61.0.0"]
 build-backend = "setuptools.build_meta"
 
-
 [project]
-name = "lib-dzne-basetables"
-version = "0.3.3"
+name = "lib_dzne_basetables"
+version = "0.4.0"
 description = "Libary for basetables. "
-license = { file = "LICENSE" }
-authors = [{ name = "Johannes Horler", email = "johannes.horler@dzne.de" }]
+license = { file = "LICENSE.txt" }
+authors = [{ name = "Johannes", email = "johannes-programming@posteo.org" }]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
@@ -17,6 +16,9 @@ classifiers = [
 keywords = ['dzne']
 dependencies = [
     'pandas>=1.4.2',
+    "na_quantors>=1.0",
 ]
 requires-python = ">=3.11"
 
+[project.urls]
+Source = "https://github.com/johannes-programming/lib_dzne_basetables"

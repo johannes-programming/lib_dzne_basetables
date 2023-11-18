@@ -2,7 +2,6 @@ import collections as _collections
 import sys as _sys
 import warnings as _wng
 
-import lib_dzne_math.na as _na
 import lib_dzne_tsv as _tsv
 
 import lib_dzne_basetables._pattern as _pat
