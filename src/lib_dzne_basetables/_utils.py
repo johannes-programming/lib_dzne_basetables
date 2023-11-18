@@ -1,6 +1,7 @@
 import string as _str
 import sys as _sys
 
+import lib_dzne_basetables._pattern as _pat
 import lib_dzne_math.na as _na
 import pandas as _pd
 
@@ -39,7 +40,7 @@ def identify_columns(table, *, patterns):
     return _pat.select(list(table.columns), patterns)
 
 def any_columns(table, *, patterns):
-    return bool(len(identify_columns(table, columns=columns)))
+    return bool(len(identify_columns(table, patterns=patterns)))
 
 def fuse(*dicts, reduce=False):
     assert reduce in (False, True)

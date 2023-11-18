@@ -2,11 +2,11 @@ import collections as _collections
 import sys as _sys
 import warnings as _wng
 
-import lib_dzne_math.na as _na
-import lib_dzne_tsv as _tsv
-
 import lib_dzne_basetables._pattern as _pat
 import lib_dzne_basetables._utils as _utl
+import lib_dzne_math.na as _na
+import lib_dzne_tsv as _tsv
+import pandas as _pd
 
 _pcr2_missing = "pcr2-information missing! "
 _plasmid_missing = "plasmid-information missing! "
@@ -18,17 +18,27 @@ class BASEData(_tsv.TSVData):
     _IDcolumns = None
     def columns(self, *patterns):
         return _utl.identify_columns(self.data, patterns=patterns)
-    def augment(self, aux, /, *, columns, demand):
+    def augment(self, aux, /, **kwargs):
+        return type(self).by_augmentation(
+            self,
+            aux,
+            **kwargs,
+        )
+    def unify(self, **kwargs):
+        return type(self).by_unification(self, **kwargs)
+    def compress(self, **kwargs):
+        return type(self).by_compression(self, **kwargs)
+    @classmethod
+    def by_augmentation(cls, objA, objB, /, *, columns, demand):
         # aux
-        if not issubclass(type(aux), BASEData):
-            aux = BASEData(aux)
+        aux = BASEData(objB)
         aux = aux.data
         auxrowss = _collections.defaultdict(list)
         for i, row in aux.iterrows():
             ID = tuple(row.get(col, "") for col in columns)
             auxrowss[ID].append(row)
         # table
-        table = self.data
+        table = BASEData(objA).data
         rows = list()
         for i, row in table.iterrows():
             ID = tuple(row[col] for col in columns)
@@ -39,14 +49,15 @@ class BASEData(_tsv.TSVData):
             except AssertionError as err:
                 info = dict(zip(list(columns), list(ID)))
                 raise KeyError(f"{info} cannot be unified: {err}")
-        return BASEData(rows)
-    def unify(self, *, columns, purge=False):
-        cls = type(self)
+        return cls(rows)
+    @classmethod
+    def by_unification(cls, data, /, *, columns, purge=False):
+        data = BASEData(data)
         if columns is None:
-            return cls(self)
-        columns = self.columns(*columns)
+            return data
+        columns = data.columns(*columns)
         rdss = _collections.defaultdict(list)
-        for i, row in self.data.iterrows():
+        for i, row in data.data.iterrows():
             rd = row#.to_dict()
             ID = tuple(rd.get(col, "") for col in columns)
             rdss[ID].append(rd)
@@ -61,84 +72,13 @@ class BASEData(_tsv.TSVData):
                 info = dict(zip(list(columns), list(ID)))
                 _wng.warn(f"{info} cannot be unified: {err}")
         return cls(rows)
-    def compress(self):
-        return self.unify(
-            table=table,
-            columns=self.IDcolumns(),
+    @classmethod
+    def by_compression(cls, data, /):
+        return cls.by_unification(
+            data,
+            columns=cls.IDcolumns(),
             purge=True,
         )
-    @classmethod
-    def IDcolumns(cls):
-        return list(cls._IDcolumns)
-    @classmethod
-    def basetype(cls):
-        if cls._ext.startswith("."):
-            raise ValueError()
-        if cls._ext.startswith("base"):
-            raise ValueError()
-        return cls._ext[1:-4]
-    @classmethod
-    def from_file(cls, file, /):
-        return super().from_file(file, ABASEData, CBASEData, DBASEData, MBASEData, YBASEData)
-    @classmethod
-    def concat(cls, *objs):
-        objs = [cls(obj).data for obj in objs]
-        ans = pd.concat(objs, axis=0, ignore_index=True)
-        ans = cls(ans)
-        return ans
-    @classmethod
-    def clone_data(cls, data, /):
-        if type(data) is pd.DataFrame:
-            table = data.copy()
-        else:
-            table = pd.DataFrame(data)
-        table = table.applymap(_utl.string)
-        cls._check(table)
-        return table
-    @classmethod
-    def _check(cls, table):
-        cls._check_BASE(table)
-        if table.size == 0:
-            return
-        cls._check_type(table)
-        cls._unique_constraint(table, columns=cls.IDcolumns())
-    @staticmethod
-    def _check_BASE(table):
-        cols = list(table.columns)
-        dc = list()
-        for col in cols:
-            assert col not in dc, f"Column name {ascii(col)} occures more than once! "
-            dc.append(col)
-            check_column(col)
-        #table.applymap(_check_str)
-        if 'GROUP' in table.columns:
-            assert 'all' not in table['GROUP'].tolist()
-        # plasmid name
-        if 'PLASMID' in table.columns:
-            for plasmid in table['PLASMID'].tolist():
-                try:
-                    assert type(float(plasmid)) is not float, "Improper plasmid name! "
-                except ValueError:
-                    continue
-    @staticmethod
-    def _check_type():
-        pass
-    @staticmethod
-    def _unique_constraint(table, *, columns):
-        if columns is None:
-            return
-        keys = list()
-        duplicates = set()
-        for i, row in self.data.iterrows():
-            key = tuple(row[col] for col in columns)
-            if key in keys:
-                if key not in duplicates:
-                    duplicates |= {key}
-            else:
-                keys.append(key)
-        if len(duplicates):
-            errors = [KeyError(f"The key {dict(zip(columns, key))} is not unique! ") for key in duplicates]
-            raise GroupException(errors)
     def _deconstruct(self, *, patterns, outcolumn, purge):
         cls = type(self)
         table = self.data
@@ -186,6 +126,80 @@ class BASEData(_tsv.TSVData):
             purge=purge,
         )
         return ans
+    @classmethod
+    def IDcolumns(cls):
+        if cls._IDcolumns is None:
+            return None
+        return list(cls._IDcolumns)
+    @classmethod
+    def basetype(cls):
+        if not cls._ext.startswith("."):
+            raise ValueError()
+        if not cls._ext.endswith("base"):
+            raise ValueError()
+        return cls._ext[1:-4]
+    @classmethod
+    def from_file(cls, file, /):
+        parentclass, = cls.__bases__
+        return parentclass.from_file(file, ABASEData, CBASEData, DBASEData, MBASEData, YBASEData)
+    @classmethod
+    def concat(cls, *objs):
+        objs = [cls(obj).data for obj in objs]
+        ans = _pd.concat(objs, axis=0, ignore_index=True)
+        ans = cls(ans)
+        return ans
+    @classmethod
+    def clone_data(cls, data, /):
+        if type(data) is _pd.DataFrame:
+            table = data.copy()
+        else:
+            table = _pd.DataFrame(data)
+        table = table.applymap(_utl.string)
+        cls._check(table)
+        return table
+    @classmethod
+    def _check(cls, table):
+        cls._check_BASE(table)
+        if table.size == 0:
+            return
+        cls._check_type(table)
+        cls._unique_constraint(table, columns=cls.IDcolumns())
+    @staticmethod
+    def _check_BASE(table):
+        cols = list(table.columns)
+        dc = list()
+        for col in cols:
+            assert col not in dc, f"Column name {ascii(col)} occures more than once! "
+            dc.append(col)
+            _utl.check_column(col)
+        if 'GROUP' in table.columns:
+            assert 'all' not in table['GROUP'].tolist()
+        # plasmid name
+        if 'PLASMID' in table.columns:
+            for plasmid in table['PLASMID'].tolist():
+                try:
+                    assert type(float(plasmid)) is not float, f"{plasmid.__repr__()} is not a proper plasmid name! "
+                except ValueError:
+                    continue
+    @staticmethod
+    def _check_type(table):
+        pass
+    @staticmethod
+    def _unique_constraint(table, *, columns):
+        if columns is None:
+            return
+        keys = list()
+        duplicates = set()
+        for i, row in table.iterrows():
+            key = tuple(row[col] for col in columns)
+            if key in keys:
+                if key not in duplicates:
+                    duplicates |= {key}
+            else:
+                keys.append(key)
+        if len(duplicates):
+            errors = [KeyError(f"The key {dict(zip(columns, key))} is not unique! ") for key in duplicates]
+            raise ExceptionGroup("Error", errors)
 
 
 
@@ -217,16 +231,16 @@ class ABASEData(BASEData):
     @property
     def dBASE(self):
         """convert aTable to dTable"""
-        table = self._deconstruct_by_number(purge=False)
+        ans = self._deconstruct_by_number(purge=False)
         CG = dict()
         for ct in "HKL":
             CG[f"{ct}C"] = f"{ct}_*"
-        ans = table._deconstruct(
+        ans = ans._deconstruct(
             patterns=CG, 
             outcolumn='CHAIN_TYPE',
             purge=False,
         )
-        ans = DBASEData(ans)
+        ans = DBASEData.by_compression(ans)
         return ans
 
 
@@ -311,4 +325,6 @@ class YBASEData(BASEData):
             assert all(table['CHAIN_TYPE'].isin(["", 'HC', 'KC', 'LC', 'N/A'])), _ct_illegal
     @property
     def cBASE(self):
-        return CBASEData(self._deconstruct_by_number())
+        ans = self._deconstruct_by_number(purge=False)
+        ans = CBASEData.by_compression(ans)
+        return ans
